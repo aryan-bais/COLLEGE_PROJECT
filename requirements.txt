@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+python-multipart
+pdfplumber
+groq
+pydantic
+nltk
+spacy
+langchain
+langgraph
+langchain_groq
+faiss-cpu
+sentence-transformers
+langchain_core
