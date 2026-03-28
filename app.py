@@ -1,45 +1,37 @@
 import streamlit as st
 from graph import app_graph
-from utils import extract_text_from_pdf
+from my_parser import extract_text
 
 st.set_page_config(page_title="AI Interviewer", layout="centered")
 
 st.title("🤖 AI Resume Interviewer")
 
-# Upload Resume
-uploaded_file = st.file_uploader("Upload your Resume (PDF)", type=["pdf"])
+uploaded_file = st.file_uploader("Upload Resume", type=["pdf"])
 
 if uploaded_file:
-    st.success("Resume uploaded successfully!")
+    text = extract_text(uploaded_file)
 
-    # Extract text
-    text = extract_text_from_pdf(uploaded_file)
+    company = st.selectbox(
+        "Choose Company",
+        ["TCS", "Infosys", "Wipro", "Google", "Amazon", "Cisco",
+         "Microsoft", "Apple", "Meta", "General"]
+    )
 
-    # Run AI pipeline
-    workflow = app_graph()
-    result = workflow.invoke({
-        "text": text,
-        "answer": "Machine learning improves with more data"
-    })
+    user_answer = st.text_area("Write your answer")
 
-    # Display outputs
-    st.subheader("🛠 Skills")
-    st.write(result.get("skills", "No skills found"))
+    if st.button("Start Interview"):
+        workflow = app_graph()
 
-    st.subheader("💼 Domain")
-    st.write(result["domain"])
-
-    st.subheader("❓ Questions")
-    st.write(result["questions"])
-
-    # Answer input
-    user_answer = st.text_area("✍️ Your Answer")
-
-    if st.button("Evaluate Answer"):
         result = workflow.invoke({
             "text": text,
-            "answer": user_answer
-        })
+            "answer": user_answer,
+            "company": company
+         })
+        
+        
+        
 
-        st.subheader("📊 Evaluation")
-        st.write(result["evaluation"])
+        st.subheader("📊 AI Interview Report")
+        st.write(result["result"])
+        
+        text = extract_text(uploaded_file)[:2000]
