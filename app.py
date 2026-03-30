@@ -1,37 +1,57 @@
 import streamlit as st
-from graph import app_graph
+from nodes import interview_node
 from my_parser import extract_text
 
 st.set_page_config(page_title="AI Interviewer", layout="centered")
 
 st.title("🤖 AI Resume Interviewer")
 
-uploaded_file = st.file_uploader("Upload Resume", type=["pdf"])
+
+uploaded_file = st.file_uploader("📄 Upload Resume (PDF)", type=["pdf"])
 
 if uploaded_file:
     text = extract_text(uploaded_file)
 
+    st.success("✅ Resume uploaded successfully!")
+
+    
     company = st.selectbox(
-        "Choose Company",
-        ["TCS", "Infosys", "Wipro", "Google", "Amazon", "Cisco",
-         "Microsoft", "Apple", "Meta", "General"]
+        "🏢 Select Company",
+        [
+            "General",
+            "TCS", "Infosys", "Wipro", "Capgemini", "Accenture",
+            "Cognizant", "HCL", "Tech Mahindra",
+            "Google", "Amazon", "Microsoft", "Cisco", "Adobe",
+            "Flipkart", "Paytm", "Zoho"
+        ]
     )
 
-    user_answer = st.text_area("Write your answer")
+    
+    if st.button("🚀 Generate Interview"):
+        result = interview_node({
+            "text": text[:2000],   
+            "company": company,
+            "answer": ""           
+        })
 
-    if st.button("Start Interview"):
-        workflow = app_graph()
+        st.session_state["result"] = result.get("result", "")
 
-        result = workflow.invoke({
-            "text": text,
-            "answer": user_answer,
-            "company": company
-         })
-        
-        
-        
+   
+    if "result" in st.session_state:
+        st.subheader("📄 Interview Output")
+        st.write(st.session_state["result"])
 
-        st.subheader("📊 AI Interview Report")
-        st.write(result["result"])
         
-        text = extract_text(uploaded_file)[:2000]
+        st.subheader("✍️ Write Your Answer")
+        user_answer = st.text_area("Enter your answer here...")
+
+        
+        if st.button("📊 Evaluate Answer"):
+            result_eval = interview_node({
+                "text": text[:2000],
+                "company": company,
+                "answer": user_answer
+            })
+
+            st.subheader("📊 Evaluation")
+            st.write(result_eval.get("result", "No evaluation"))

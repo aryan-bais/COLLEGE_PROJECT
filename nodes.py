@@ -15,34 +15,59 @@ def interview_node(state):
     answer = state.get("answer", "")
     company = state.get("company", "General")
 
-    prompt = f"""
-    You are an expert AI interviewer.
+    
+    if not answer:
+        prompt = f"""
+        You are an expert AI interviewer.
 
-    Resume:
-    {text}
+        Resume:
+        {text}
 
-    Company: {company}
+        Company: {company}
 
-    Candidate Answer:
-    {answer}
+        Tasks:
+        1. Extract technical skills
+        2. Identify domain
+        3. Generate 5 technical interview questions based on resume skills
+        4. If company is not "General", slightly tailor questions for {company}
 
-    Perform ALL tasks:
-    1. Extract technical skills
-    2. Identify domain
-    3. Generate 5 company-oriented interview questions
-    4. Evaluate candidate answer
-    5. Give score out of 10
-    6. Suggest better answer
+        Return format:
 
-    Return response in this format:
+        Skills:
+        Domain:
+        Questions:
+        """
 
-    Skills:
-    Domain:
-    Questions:
-    Score:
-    Feedback:
-    Better Answer:
-    """
+    
+    else:
+        prompt = f"""
+        You are an expert AI interviewer.
 
-    res = llm.invoke(prompt)
-    return {"result": res.content.strip()}
+        Resume:
+        {text}
+
+        Company: {company}
+
+        Candidate Answer:
+        {answer}
+
+        Tasks:
+        1. Evaluate the answer
+        2. Give score out of 10
+        3. Provide feedback
+        4. Suggest better answer
+
+        Return format:
+
+        Score:
+        Feedback:
+        Better Answer:
+        """
+
+    try:
+        res = llm.invoke(prompt)
+        return {"result": res.content.strip()}
+
+    except Exception as e:
+        print("ERROR:", e)
+        return {"result": f"❌ Error: {str(e)}"}

@@ -1,20 +1,65 @@
-from langgraph.graph import StateGraph
-from typing import TypedDict
-from nodes import interview_node
+import os
+from dotenv import load_dotenv
+from langchain_groq import ChatGroq
 
+load_dotenv()
 
-class State(TypedDict):
-    text: str
-    answer: str
-    company: str
-    result: str
+llm = ChatGroq(
+    model="llama-3.1-8b-instant",
+    api_key=os.getenv("GROQ_API_KEY")
+)
 
+def interview_node(state):
+    text = state.get("text", "")
+    answer = state.get("answer", "")
+    company = state.get("company", "General")
 
-def app_graph():
-    graph = StateGraph(State)
+    prompt = f"""
+    You are an expert AI interviewer.
 
-    graph.add_node("interview", interview_node)
+    Resume:
+    {text[:2000]}
 
-    graph.set_entry_point("interview")
+    Company: {company}
 
-    return graph.compile()
+    Candidate Answer:
+    {answer}
+
+    Perform ALL tasks:
+    1. Extract technical skills
+    2. Identify domain
+    3. Generate 5 company-oriented interview questions
+    4. Evaluate candidate answer
+    5. Give score out of 10
+    6. Suggest better answer
+
+    Return STRICT JSON:
+
+    {{
+      "skills": "...",
+      "domain": "...",
+      "questions": "...",
+      "score": "...",
+      "feedback": "...",
+      "better_answer": "..."
+    }}
+    """
+
+    try:
+        res = llm.invoke(prompt)
+
+        import json
+        data = json.loads(res.content)
+
+        return data
+
+    except Exception as e:
+        print("ERROR:", e)
+        return {
+            "skills": "Error",
+            "domain": "Error",
+            "questions": "Error",
+            "score": "0",
+            "feedback": "API failed",
+            "better_answer": ""
+        }
