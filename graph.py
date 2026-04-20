@@ -8,58 +8,81 @@ llm = ChatGroq(
     model="llama-3.1-8b-instant",
     api_key=os.getenv("GROQ_API_KEY")
 )
-
 def interview_node(state):
     text = state.get("text", "")
     answer = state.get("answer", "")
     company = state.get("company", "General")
+    question = state.get("question", "")
 
-    prompt = f"""
-    You are an expert AI interviewer.
+    import json
 
-    Resume:
-    {text[:2000]}
+    # 🎯 STEP 1: GENERATE QUESTION
+    if answer == "":
+        prompt = f"""
+        You are an AI interviewer.
 
-    Company: {company}
+        Resume:
+        {text[:2000]}
 
-    Candidate Answer:
-    {answer}
+        Company: {company}
 
-    Perform ALL tasks:
-    1. Extract technical skills
-    2. Identify domain
-    3. Generate 5 company-oriented interview questions
-    4. Evaluate candidate answer
-    5. Give score out of 10
-    6. Suggest better answer
+        Generate ONE interview question.
 
-    Return STRICT JSON:
+        STRICT:
+        Return ONLY plain text question.
+        """
 
-    {{
-      "skills": "...",
-      "domain": "...",
-      "questions": "...",
-      "score": "...",
-      "feedback": "...",
-      "better_answer": "..."
-    }}
-    """
+        try:
+            res = llm.invoke(prompt)
+            q = res.content.strip()
 
-    try:
-        res = llm.invoke(prompt)
+            # ✅ ALWAYS return question key
+            return {"question": q}
 
-        import json
-        data = json.loads(res.content)
+        except Exception as e:
+            print("ERROR:", e)
+            return {"question": "Tell me about yourself."}
 
-        return data
+    # 🎯 STEP 2: EVALUATE
+    else:
+        prompt = f"""
+        Evaluate this answer.
 
-    except Exception as e:
-        print("ERROR:", e)
-        return {
-            "skills": "Error",
-            "domain": "Error",
-            "questions": "Error",
-            "score": "0",
-            "feedback": "API failed",
-            "better_answer": ""
-        }
+        Question: {question}
+        Answer: {answer}
+
+        Return JSON ONLY:
+
+        {{
+          "score": "0-10",
+          "feedback": "short feedback",
+          "better_answer": "improved answer"
+        }}
+        """
+
+        try:
+            res = llm.invoke(prompt)
+            content = res.content.strip()
+
+            # 🧠 Extract JSON safely
+            start = content.find("{")
+            end = content.rfind("}") + 1
+            json_str = content[start:end]
+
+            data = json.loads(json_str)
+
+            # ✅ Ensure keys exist
+            return {
+                "score": data.get("score", "0"),
+                "feedback": data.get("feedback", ""),
+                "better_answer": data.get("better_answer", "")
+            }
+
+        except Exception as e:
+            print("ERROR:", e)
+
+            return {
+                "score": "0",
+                "feedback": "Evaluation failed",
+                "better_answer": ""
+            }
