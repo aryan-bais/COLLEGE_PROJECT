@@ -1,4 +1,6 @@
 import os
+import json
+import time
 from dotenv import load_dotenv
 from langchain_groq import ChatGroq
 
@@ -8,51 +10,98 @@ llm = ChatGroq(
     model="llama-3.1-8b-instant",
     api_key=os.getenv("GROQ_API_KEY")
 )
+
+# -------------------------------
+# SAFE JSON PARSER
+# -------------------------------
+def safe_json_parse(content):
+    try:
+        start = content.find("{")
+        end = content.rfind("}") + 1
+
+        if start == -1 or end == -1:
+            return {}
+
+        return json.loads(content[start:end])
+    except:
+        return {}
+
+# -------------------------------
+# MAIN FUNCTION
+# -------------------------------
 def interview_node(state):
     text = state.get("text", "")
     answer = state.get("answer", "")
-    company = state.get("company", "General")
+    domain = state.get("domain", "General")
     question = state.get("question", "")
+    mode = state.get("mode", "analyze")
 
-    import json
-
-    # 🎯 STEP 1: GENERATE QUESTION
-    if answer == "":
+    # =========================
+    # 1. ANALYZE RESUME
+    # =========================
+    if mode == "analyze":
         prompt = f"""
-        You are an AI interviewer.
+        Analyze this resume:
 
-        Resume:
-        {text[:2000]}
+        {text[:1000]}
 
-        Company: {company}
-
-        Generate ONE interview question.
-
-        STRICT:
-        Return ONLY plain text question.
+        Return ONLY JSON:
+        {{
+          "skills": "comma separated skills",
+          "domain": "frontend/backend/devops/aiml"
+        }}
         """
 
         try:
             res = llm.invoke(prompt)
-            q = res.content.strip()
+            data = safe_json_parse(res.content)
 
-            # ✅ ALWAYS return question key
-            return {"question": q}
+            return {
+                "skills": data.get("skills", "Not detected"),
+                "domain": data.get("domain", "General")
+            }
 
         except Exception as e:
-            print("ERROR:", e)
-            return {"question": "Tell me about yourself."}
+            print("ANALYZE ERROR:", e)
+            return {"skills": "Not detected", "domain": "General"}
 
-    # 🎯 STEP 2: EVALUATE
-    else:
+    # =========================
+    # 2. GENERATE QUESTION
+    # =========================
+    elif mode == "question":
         prompt = f"""
-        Evaluate this answer.
+        Generate ONE interview question for {domain} domain.
 
+        Only return question text.
+        """
+
+        try:
+            try:
+                res = llm.invoke(prompt)
+            except:
+                time.sleep(2)
+                res = llm.invoke(prompt)
+
+            content = res.content.strip()
+
+            if not content or len(content) < 5:
+                content = "Explain your recent project."
+
+            return {"question": content}
+
+        except Exception as e:
+            print("QUESTION ERROR:", e)
+            return {"question": "Explain your recent project."}
+
+    # =========================
+    # 3. EVALUATE ANSWER
+    # =========================
+    elif mode == "evaluate":
+        prompt = f"""
         Question: {question}
         Answer: {answer}
 
-        Return JSON ONLY:
-
+        Return JSON:
         {{
           "score": "0-10",
           "feedback": "short feedback",
@@ -62,27 +111,20 @@ def interview_node(state):
 
         try:
             res = llm.invoke(prompt)
-            content = res.content.strip()
+            data = safe_json_parse(res.content)
 
-            # 🧠 Extract JSON safely
-            start = content.find("{")
-            end = content.rfind("}") + 1
-            json_str = content[start:end]
-
-            data = json.loads(json_str)
-
-            # ✅ Ensure keys exist
             return {
                 "score": data.get("score", "0"),
-                "feedback": data.get("feedback", ""),
+                "feedback": data.get("feedback", "Could not evaluate"),
                 "better_answer": data.get("better_answer", "")
             }
 
         except Exception as e:
-            print("ERROR:", e)
-
+            print("EVAL ERROR:", e)
             return {
                 "score": "0",
                 "feedback": "Evaluation failed",
                 "better_answer": ""
             }
+
+    return {}
